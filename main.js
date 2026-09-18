@@ -248,6 +248,12 @@ const trialCountEl = document.getElementById("trialCount");
 const confirmBtn = document.getElementById("confirmBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const statusEl = document.getElementById("status");
+const metricsEl = document.getElementById("metrics");
+const viewportMetricsEl = document.getElementById("viewport-metrics");
+
+/** xr-standard face buttons (X / A), rising edge ends the session. */
+const VR_EXIT_BUTTON_INDICES = [4, 5];
+let vrExitButtonWasPressed = false;
 
 // ---------------------------------------------------------------------------
 // Trial state machine — provided
@@ -384,41 +390,84 @@ function handleDownloadClick() {
 // Status indicator — provided
 // ---------------------------------------------------------------------------
 
-function updateStatus() {
+function updateErrorMetricsDisplay() {
   const { positionError, orientationErrorDeg, withinTolerance } = checkTolerance();
+  const text = `dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
+  if (metricsEl) metricsEl.textContent = text;
+  if (viewportMetricsEl) {
+    viewportMetricsEl.classList.toggle("in-tolerance", withinTolerance);
+  }
+  return { withinTolerance };
+}
+
+function updateStatus() {
+  updateErrorMetricsDisplay();
   if (!statusEl) return;
 
-  if (renderer?.xr?.isPresenting && isVRPointerMapping()) {
+  const inVR = Boolean(renderer?.xr?.isPresenting);
+  statusEl.classList.toggle("in-vr", inVR);
+
+  if (inVR && isVRPointerMapping()) {
     if (cube.userData.heldBy) {
       const kind = cube.userData.heldBy.userData.vrGrabKind || "grab";
-      statusEl.textContent = `${kind} | dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
-    } else if (currentMapping() === "4") {
+      statusEl.textContent = `${kind} | X: exit VR | grip: Confirm`;
+      return;
+    }
+    if (currentMapping() === "4") {
       const onCube = isControllerAimingAtCube();
       const nextAction = onCube ? "trigger: move cube" : "trigger: rotate";
-      statusEl.textContent = `Trackball | ${nextAction} | grip: Confirm | dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
-    } else if (currentMapping() === "5") {
+      statusEl.textContent = `Trackball | ${nextAction} | grip: Confirm | X: exit VR`;
+      return;
+    }
+    if (currentMapping() === "5") {
       const handle = getAimedGizmoHandle();
       const aim = handle
         ? `${handle.userData.gizmoMode} ${handle.userData.gizmoAxis}`
         : "—";
-      statusEl.textContent = `Gizmo | aim ${aim} | grip: Confirm | dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
-    } else {
-      const onTarget = isControllerAimingAtCube();
-      statusEl.textContent = `Direct grab | aim ${onTarget ? "OK" : "—"} | grip: Confirm | dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
+      statusEl.textContent = `Gizmo | aim ${aim} | grip: Confirm | X: exit VR`;
+      return;
     }
-    statusEl.classList.toggle("in-tolerance", withinTolerance);
-    statusEl.classList.toggle("in-vr", true);
+    const onTarget = isControllerAimingAtCube();
+    statusEl.textContent = `Direct grab | aim ${onTarget ? "OK" : "—"} | grip: Confirm | X: exit VR`;
     return;
   }
 
-  statusEl.textContent = `dPos ${positionError.toFixed(3)} | dRot ${orientationErrorDeg.toFixed(1)}deg`;
-  statusEl.classList.toggle("in-tolerance", withinTolerance);
+  statusEl.textContent = inVR ? "X: exit VR" : "Space: translate/rotate (desktop 1–2)";
 }
 
 function setStatus(text, inVR = false) {
   if (!statusEl) return;
   statusEl.textContent = text;
   statusEl.classList.toggle("in-vr", inVR);
+  updateErrorMetricsDisplay();
+}
+
+function pollVRExitButton() {
+  if (!renderer?.xr?.isPresenting) {
+    vrExitButtonWasPressed = false;
+    return;
+  }
+
+  const session = renderer.xr.getSession();
+  if (!session) return;
+
+  let pressed = false;
+  for (const source of session.inputSources) {
+    const gamepad = source.gamepad;
+    if (!gamepad) continue;
+    for (const index of VR_EXIT_BUTTON_INDICES) {
+      if (gamepad.buttons[index]?.pressed) {
+        pressed = true;
+        break;
+      }
+    }
+    if (pressed) break;
+  }
+
+  if (pressed && !vrExitButtonWasPressed) {
+    session.end();
+  }
+  vrExitButtonWasPressed = pressed;
 }
 
 function onXRSessionStart() {
@@ -1056,6 +1105,7 @@ function animate() {
   updateControlMapping(delta);
   updateVRGizmoVisibility();
   updateGizmoAimHighlight();
+  pollVRExitButton();
   if (renderer?.xr?.isPresenting) updateVRMapping();
 
   // Generic path-length accumulation — measures how far the cube has
