@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MAC0623 — Class 10: WebXR Retrofit of A1 (Starter)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       HUD — provided, same fields as the A1 starter (participant ID,
+       mapping select, trial counter, confirm/download) plus a status
+       line that also reports VR state once the retrofit is wired.
+       Don't remove these IDs; main.js reads them exactly.
+       ============================================================ -->
+  <div id="hud">
+    <label>Participant <input id="participantId" value="P01" size="4" /></label>
+    <label>Mapping
+      <select id="mappingSelect">
+        <option value="1">1 — Desktop baseline</option>
+        <option value="2">2 — Desktop your own</option>
+        <option value="3">3 — VR Direct Grab</option>
+        <option value="4">4 — VR Trackball</option>
+        <option value="5">5 — VR Gizmo</option>
+      </select>
+    </label>
+    <span id="trialCount">Trial 1</span>
+    <button id="confirmBtn">Confirm (Enter)</button>
+    <button id="downloadBtn">Download CSV</button>
+    <span id="status">—</span>
+  </div>
+
+  <div id="help">
+    Desktop 1–2: Space = translate/rotate. VR 3: trigger on cube (direct grab).
+    VR 4: trigger on cube = translate; trigger off cube = rotate; grip = Confirm.
+    VR 5: trigger on gizmo handle; grip = Confirm. Enter/Confirm also work on desktop.
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
